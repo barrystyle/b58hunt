@@ -29,9 +29,9 @@ void generate_keypair(char* seckey, char* pubwif)
 {
     if (!ctx)
         ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
-    if (!secp256k1_ec_seckey_verify(ctx, (const unsigned char*)seckey)) {
-        return;
-    }
+    //if (!secp256k1_ec_seckey_verify(ctx, (const unsigned char*)seckey)) {
+    //    return;
+    //}
     secp256k1_pubkey pubkey;
     secp256k1_ec_pubkey_create(ctx, &pubkey, (const unsigned char*)seckey);
 
