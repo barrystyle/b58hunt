@@ -25,6 +25,11 @@ char* base58(byte* s, int s_size, char* out, int out_size)
     return out;
 }
 
+static inline uint64_t swab64(uint64_t v)
+{
+    return __builtin_bswap64(v);
+}
+
 void generate_keypair(char* seckey, char* pubwif)
 {
     if (!ctx)
@@ -62,7 +67,8 @@ void generate_keypair(char* seckey, char* pubwif)
 void genkey(char* privkey, uint64_t& smalnum)
 {
     memset(privkey, 0, 32);
-    memcpy(&privkey[0], &smalnum, 8);
+    uint64_t swapped = swab64(smalnum);
+    memcpy(&privkey[24], &swapped, 8);
 }
 
 uint64_t new_range()
@@ -136,7 +142,7 @@ void scan()
             }
 
             if (z > best) {
-                for (int y = 31; y > -1; y--) {
+                for (int y = 0; y < 32; y++) {
                     printf("%02hhx", privkey[y]);
                 }
                 printf("\n");
