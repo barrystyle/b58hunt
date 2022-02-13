@@ -1,12 +1,14 @@
+// btcpuzzle keygen
+// copyright (c) 2022 barrystyle
+
+#include "util.h"
 #include <openssl/ripemd.h>
 #include <openssl/sha.h>
 #include <secp256k1.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include <util.h>
 
-#include <iostream>
 #include <thread>
 #include <vector>
 
@@ -29,11 +31,6 @@ char* base58(byte* s, int s_size, char* out, int out_size)
     return out;
 }
 
-static inline uint64_t swab64(uint64_t v)
-{
-    return __builtin_bswap64(v);
-}
-
 void generate_keypair(char* seckey, char* pubwif)
 {
     if (!ctx)
@@ -46,8 +43,8 @@ void generate_keypair(char* seckey, char* pubwif)
     size_t pubkeylen = sizeof(pubkey_serialized);
     secp256k1_ec_pubkey_serialize(ctx, pubkey_serialized, &pubkeylen, &pubkey, SECP256K1_EC_COMPRESSED);
 
-    char pubaddress[34];
     byte s[33];
+    char pubaddress[34];
     byte rmd[5 + RIPEMD160_DIGEST_LENGTH];
     for (int j = 0; j < 33; j++) { s[j] = pubkey_serialized[j]; }
 
@@ -71,34 +68,11 @@ void generate_keypair(char* seckey, char* pubwif)
 void genkey(char* privkey, uint64_t& smalnum)
 {
     memset(privkey, 0, 32);
-    uint64_t swapped = swab64(smalnum);
+    uint64_t swapped = __builtin_bswap64(smalnum);
     memcpy(&privkey[24], &swapped, 8);
 }
 
-uint64_t new_range()
-{
-    uint64_t MAX_RANGE = 0x8000000000000000;
-    uint64_t ret = MAX_RANGE;
-
-    char temp[8];
-    memset(temp, 0, sizeof(temp));
-    memcpy(temp, &MAX_RANGE, 8);
-
-    for (int i = 7; i > -1; i--) {
-        uint8_t rand_new;
-        if (i == 7)
-            rand_new = rand() % 63 + 1;
-        else
-            rand_new = rand() % 127 + 1;
-        temp[i] += rand_new;
-    }
-
-    memcpy(&ret, temp, 8);
-
-    return ret;
-}
-
-void scan(char matchkey[34], uint64_t range_override = 0)
+void scan(char matchkey[34], int thr_id, uint64_t range_override = 0)
 {
     srand(time(NULL));
 
@@ -116,7 +90,7 @@ void scan(char matchkey[34], uint64_t range_override = 0)
     int best = 0;
     uint64_t totalkeys = 0;
 
-    printf("scanning range %llx\n", num);
+    printf("[%d] Scanning range %llx\n", thr_id, num);
 
     while (true) {
 
@@ -130,26 +104,24 @@ void scan(char matchkey[34], uint64_t range_override = 0)
         const auto checkpt = get_time_millis();
 
         if (checkpt - start > duration * 1000) {
-            printf("%.2f pairs/sec (tested %llu keys)\n", float(x / duration), totalkeys);
+            printf("[%d] %.2f pairs/s (tested %llu keys)\n", thr_id, float(x / duration), totalkeys);
             start = checkpt;
             x = 0;
         }
 
         for (int z = 0; z < 34; z++) {
-
             if (pubkey[z] != matchkey[z]) {
                 break;
             }
-
             if (z > best) {
-                for (int y = 0; y < 32; y++) {
-                    printf("%02hhx", privkey[y]);
-                }
-                printf("\n");
+                char full_privkey[65];
+                memset(full_privkey, 0, sizeof(full_privkey));
+                for (int y = 0; y < 32; y++)
+                    sprintf(full_privkey + (y * 2), "%02hhx", privkey[y]);
                 best = z;
-                printf("best match %d (ours %s, tomatch %s)\n", best+1, pubkey, matchkey);
-
-                if (best+1 == 34) return;
+                printf("[%d] best match %d (ours %s, tomatch %s - privkey %s)\n", thr_id, best + 1, pubkey, matchkey, full_privkey);
+                if (best + 1 == 34)
+                    return;
             }
         }
     }
@@ -190,7 +162,7 @@ int main()
 
     std::vector<std::thread> threads;
     uint64_t base_range = 0x8000000000000000;
-    uint64_t sub_range  = 0x1000000000000000;
+    uint64_t sub_range = 0x1000000000000000;
 
     char test_addr[35];
     memset(test_addr, 0, sizeof(test_addr));
@@ -199,10 +171,10 @@ int main()
     for (int i = 0; i < THR_MAX; i++) {
         uint64_t thr_range = base_range + (i * sub_range);
         printf("launching thread %d (%016llx)..\n", i, thr_range);
-        threads.push_back(std::thread(scan, std::move(test_addr), std::move(thr_range)));
+        threads.push_back(std::thread(scan, std::move(test_addr), std::move(i), std::move(thr_range)));
     }
- 
-    for (auto &th : threads) {
+
+    for (auto& th : threads) {
         th.join();
     }
 
