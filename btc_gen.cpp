@@ -94,19 +94,15 @@ uint64_t new_range()
     return ret;
 }
 
-void scan()
+void scan(char matchkey[34], uint64_t range_override = 0)
 {
-
     srand(time(NULL));
 
     char privkey[32];
     char pubkey[35];
-    char matchkey[35];
-    memset(matchkey, 0, 35);
-    sprintf(matchkey, "16jY7qLJnxb7CHZyqBP8qca9d51gAjyXQN");
 
     int duration = 10;
-    uint64_t num = new_range();
+    uint64_t num = range_override;
 
     return_on_sec();
     int64_t start = get_time_millis();
@@ -147,7 +143,9 @@ void scan()
                 }
                 printf("\n");
                 best = z;
-                printf("best match %d (ours %s, tomatch %s)\n", best, pubkey, matchkey);
+                printf("best match %d (ours %s, tomatch %s)\n", best+1, pubkey, matchkey);
+
+                if (best+1 == 34) return;
             }
         }
     }
@@ -157,9 +155,34 @@ void scan()
 
 int main()
 {
+    //! test using the previous puzzles
+    bool unit_tests = false;
+    if (unit_tests) {
+	scan("1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH");
+	scan("1CUNEBjYrCn2y1SdiUMohaKUi4wpP326Lb");
+	scan("19ZewH8Kk1PDbSNdJ97FP4EiCjTRaZMZQA");
+	scan("1EhqbyUMvvs7BfL8goY6qcPbD6YKfPqb7e");
+	scan("1E6NuFjCi27W5zoXg8TRdcSRq84zJeBW3k");
+	scan("1PitScNLyp2HCygzadCh7FveTnfmpPbfp8");
+	scan("1McVt1vMtCC7yn5b9wgX1833yCcLXzueeC");
+	scan("1M92tSqNmQLYw33fuBvjmeadirh1ysMBxK");
+	scan("1CQFwcjw1dwhtkVWBttNLDtqL7ivBonGPV");
+	scan("1LeBZP5QCwwgXRtmVUvTVrraqPUokyLHqe");
+	scan("1PgQVLmst3Z314JrQn5TNiys8Hc38TcXJu");
+	scan("1DBaumZxUkM4qMQRt2LVWyFJq5kDtSZQot");
+	scan("1Pie8JkxBT6MGPz9Nvi3fsPkr2D8q3GBc1");
+	scan("1ErZWg5cFCe4Vw5BzgfzB74VNLaXEiEkhk");
+	scan("1QCbW9HWnwQWiQqVo5exhAnmfqKRrCRsvW");
+	scan("1BDyrQ6WoF8VN3g9SAS1iKZcPzFfnDVieY");
+	scan("1HduPEXZRdG26SUT5Yk83mLkPyjnZuJ7Bm");
+	scan("1GnNTmTVLZiqQfLbAdp9DVdicEnB5GoERE");
+	scan("1NWmZRpHH4XSPwsW6dsS3nrNWfL1yrJj4w");
+	scan("1HsMJxNiV7TLxmoF6uJNkydxPFDog4NQum");
+    }
 
+    //! test using the actual puzzle we want to solve
     while (true) {
-        scan();
+        scan("16jY7qLJnxb7CHZyqBP8qca9d51gAjyXQN", 0x8000000000000000);
     }
 
     return 1;
