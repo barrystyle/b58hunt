@@ -29,14 +29,12 @@ void generate_keypair(char* seckey, char* pubwif)
 {
     if (!ctx)
         ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
-    //if (!secp256k1_ec_seckey_verify(ctx, (const unsigned char*)seckey)) {
-    //    return;
-    //}
+
     secp256k1_pubkey pubkey;
     secp256k1_ec_pubkey_create(ctx, &pubkey, (const unsigned char*)seckey);
 
-    size_t pk_len = 65;
     char pk_bytes[34];
+    size_t pk_len = 65;
     secp256k1_ec_pubkey_serialize(ctx, (unsigned char*)pk_bytes, &pk_len, &pubkey, SECP256K1_EC_UNCOMPRESSED);
 
     char pubaddress[34];
@@ -52,9 +50,9 @@ void generate_keypair(char* seckey, char* pubwif)
 
     char address[34];
     base58(rmd, 25, address, 34);
-    int n = 0;
-    for (n = 0; address[n] == '1'; n++);
 
+    int n;
+    for (n = 0; address[n] == '1'; n++);
     if (n > 1) {
         memmove(address, address + (n - 1), 34 - (n - 1));
         pubaddress[34 - (n - 1)] = '\0';
