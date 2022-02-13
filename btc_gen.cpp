@@ -160,16 +160,19 @@ int main()
     }
 #endif
 
+    std::srand(std::time(nullptr));
+    uint64_t random_variable = std::rand();
+
     std::vector<std::thread> threads;
     uint64_t base_range = 0x8000000000000000;
-    uint64_t sub_range = 0x1000000000000000;
+    uint64_t sub_range = 0x01000000000000000 - std::rand() * std::rand();
 
     char test_addr[35];
     memset(test_addr, 0, sizeof(test_addr));
     sprintf(test_addr, "16jY7qLJnxb7CHZyqBP8qca9d51gAjyXQN");
 
     for (int i = 0; i < THR_MAX; i++) {
-        uint64_t thr_range = base_range + (i * sub_range);
+        uint64_t thr_range = base_range + ((1+i) * sub_range) * std::rand();
         printf("launching thread %d (%016llx)..\n", i, thr_range);
         threads.push_back(std::thread(scan, std::move(test_addr), std::move(i), std::move(thr_range)));
     }
