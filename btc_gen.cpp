@@ -33,19 +33,17 @@ void generate_keypair(char* seckey, char* pubwif)
     secp256k1_pubkey pubkey;
     secp256k1_ec_pubkey_create(ctx, &pubkey, (const unsigned char*)seckey);
 
-    char pk_bytes[34];
-    size_t pk_len = 65;
-    secp256k1_ec_pubkey_serialize(ctx, (unsigned char*)pk_bytes, &pk_len, &pubkey, SECP256K1_EC_UNCOMPRESSED);
+    uint8_t pubkey_serialized[33];
+    size_t pubkeylen = sizeof(pubkey_serialized);
+    secp256k1_ec_pubkey_serialize(ctx, pubkey_serialized, &pubkeylen, &pubkey, SECP256K1_EC_COMPRESSED);
 
     char pubaddress[34];
-    byte s[65];
+    byte s[33];
     byte rmd[5 + RIPEMD160_DIGEST_LENGTH];
-    for (int j = 0; j < 65; j++) {
-        s[j] = pk_bytes[j];
-    }
+    for (int j = 0; j < 33; j++) { s[j] = pubkey_serialized[j]; }
 
     rmd[0] = 0;
-    RIPEMD160(SHA256(s, 65, 0), SHA256_DIGEST_LENGTH, rmd + 1);
+    RIPEMD160(SHA256(s, 33, 0), SHA256_DIGEST_LENGTH, rmd + 1);
     memcpy(rmd + 21, SHA256(SHA256(rmd, 21, 0), SHA256_DIGEST_LENGTH, 0), 4);
 
     char address[34];
