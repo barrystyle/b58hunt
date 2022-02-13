@@ -6,6 +6,10 @@
 #include <string.h>
 #include <util.h>
 
+#include <iostream>
+#include <thread>
+#include <vector>
+
 typedef unsigned char byte;
 static secp256k1_context* ctx = NULL;
 static const char* tmpl = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -153,8 +157,11 @@ void scan(char matchkey[34], uint64_t range_override = 0)
     return;
 }
 
+#define THR_MAX 4
+
 int main()
 {
+#if 0
     //! test using the previous puzzles
     bool unit_tests = false;
     if (unit_tests) {
@@ -179,10 +186,24 @@ int main()
 	scan("1NWmZRpHH4XSPwsW6dsS3nrNWfL1yrJj4w");
 	scan("1HsMJxNiV7TLxmoF6uJNkydxPFDog4NQum");
     }
+#endif
 
-    //! test using the actual puzzle we want to solve
-    while (true) {
-        scan("16jY7qLJnxb7CHZyqBP8qca9d51gAjyXQN", 0x8000000000000000);
+    std::vector<std::thread> threads;
+    uint64_t base_range = 0x8000000000000000;
+    uint64_t sub_range  = 0x1000000000000000;
+
+    char test_addr[35];
+    memset(test_addr, 0, sizeof(test_addr));
+    sprintf(test_addr, "16jY7qLJnxb7CHZyqBP8qca9d51gAjyXQN");
+
+    for (int i = 0; i < THR_MAX; i++) {
+        uint64_t thr_range = base_range + (i * sub_range);
+        printf("launching thread %d (%016llx)..\n", i, thr_range);
+        threads.push_back(std::thread(scan, std::move(test_addr), std::move(thr_range)));
+    }
+ 
+    for (auto &th : threads) {
+        th.join();
     }
 
     return 1;
