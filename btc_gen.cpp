@@ -8,13 +8,16 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
+#include <algorithm>
 #include <thread>
 #include <vector>
 
 typedef unsigned char byte;
 static secp256k1_context* ctx = NULL;
 static const char* tmpl = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+unsigned char pubkey_hash[20] = { 0x3e, 0xe4, 0x13, 0x3d, 0x99, 0x1f, 0x52, 0xfd, 0xf6, 0xa2, 0x5c, 0x98, 0x34, 0xe0, 0x74, 0x5a, 0xc7, 0x42, 0x48, 0xa4 };
 
 char* base58(byte* s, int s_size, char* out, int out_size)
 {
@@ -31,7 +34,7 @@ char* base58(byte* s, int s_size, char* out, int out_size)
     return out;
 }
 
-void generate_keypair(char* seckey, char* pubwif)
+void generate_keypair(char* seckey, char* pubwif, char* pkh)
 {
     if (!ctx)
         ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
@@ -46,23 +49,14 @@ void generate_keypair(char* seckey, char* pubwif)
     byte s[33];
     char pubaddress[34];
     byte rmd[5 + RIPEMD160_DIGEST_LENGTH];
-    for (int j = 0; j < 33; j++) { s[j] = pubkey_serialized[j]; }
+    for (int j = 0; j < 33; j++) {
+        s[j] = pubkey_serialized[j];
+    }
 
     rmd[0] = 0;
     RIPEMD160(SHA256(s, 33, 0), SHA256_DIGEST_LENGTH, rmd + 1);
     memcpy(rmd + 21, SHA256(SHA256(rmd, 21, 0), SHA256_DIGEST_LENGTH, 0), 4);
-
-    char address[34];
-    base58(rmd, 25, address, 34);
-
-    int n;
-    for (n = 0; address[n] == '1'; n++);
-    if (n > 1) {
-        memmove(address, address + (n - 1), 34 - (n - 1));
-        pubaddress[34 - (n - 1)] = '\0';
-    }
-    memcpy(pubwif, address, 34);
-    memset(pubwif + 34, 0, 1);
+    memcpy(pkh, rmd + 1, 20);
 }
 
 void genkey(char* privkey, uint64_t& smalnum)
@@ -72,12 +66,13 @@ void genkey(char* privkey, uint64_t& smalnum)
     memcpy(&privkey[24], &swapped, 8);
 }
 
-void scan(char matchkey[34], int thr_id, uint64_t range_override = 0)
+void scan(int thr_id, uint64_t range_override = 0)
 {
     srand(time(NULL));
 
     char privkey[32];
     char pubkey[35];
+    char pkh[20];
 
     int duration = 10;
     uint64_t num = range_override;
@@ -99,18 +94,20 @@ void scan(char matchkey[34], int thr_id, uint64_t range_override = 0)
 
         ++num;
         genkey(&privkey[0], num);
-        generate_keypair(&privkey[0], &pubkey[0]);
+        generate_keypair(&privkey[0], &pubkey[0], &pkh[0]);
 
         const auto checkpt = get_time_millis();
 
+#if 0
         if (checkpt - start > duration * 1000) {
             printf("[%d] %.2f pairs/s (tested %llu keys)\n", thr_id, float(x / duration), totalkeys);
             start = checkpt;
             x = 0;
         }
+#endif
 
-        for (int z = 0; z < 34; z++) {
-            if (pubkey[z] != matchkey[z]) {
+        for (int z = 0; z < 20; z++) {
+            if (pubkey_hash[z] != (uint8_t)pkh[z]) {
                 break;
             }
             if (z > best) {
@@ -119,7 +116,7 @@ void scan(char matchkey[34], int thr_id, uint64_t range_override = 0)
                 for (int y = 0; y < 32; y++)
                     sprintf(full_privkey + (y * 2), "%02hhx", privkey[y]);
                 best = z;
-                printf("[%d] best match %d (ours %s, tomatch %s - privkey %s)\n", thr_id, best + 1, pubkey, matchkey, full_privkey);
+                printf("[%d] best match %d (privkey %s)\n", thr_id, best + 1, full_privkey);
                 if (best + 1 == 34)
                     return;
             }
@@ -164,17 +161,25 @@ int main()
     uint64_t random_variable = std::rand();
 
     std::vector<std::thread> threads;
-    uint64_t base_range = 0x8000000000000000;
-    uint64_t sub_range = 0x01000000000000000 - std::rand() * std::rand();
 
-    char test_addr[35];
-    memset(test_addr, 0, sizeof(test_addr));
-    sprintf(test_addr, "16jY7qLJnxb7CHZyqBP8qca9d51gAjyXQN");
+    uint64_t thr_range;
+    std::vector<uint64_t> prev_start;
+    uint64_t base_range = 0x8000000000000000;
+    uint64_t sub_range = 0xffffffffffffffff;
 
     for (int i = 0; i < THR_MAX; i++) {
-        uint64_t thr_range = base_range + ((1+i) * sub_range) * std::rand();
+        while (true) {
+            thr_range = 0;
+            while (thr_range < base_range) {
+                thr_range = base_range + (((sub_range - base_range) / std::rand()) * std::rand());
+            }
+            if (std::find(prev_start.begin(), prev_start.end(), thr_range) == prev_start.end()) {
+                break;
+            }
+        }
+        prev_start.push_back(thr_range);
         printf("launching thread %d (%016llx)..\n", i, thr_range);
-        threads.push_back(std::thread(scan, std::move(test_addr), std::move(i), std::move(thr_range)));
+        threads.push_back(std::thread(scan, std::move(i), std::move(thr_range)));
     }
 
     for (auto& th : threads) {
