@@ -44,15 +44,27 @@ void scan(int thr_id, uint64_t range_override = 0)
     srand(time(NULL));
 
     int best = 0;
+    int hashes = 0;
     char privkey[32];
     char pubkey[35];
     char pkh[20];
-
+    uint64_t st = get_time_millis();
     uint64_t num = range_override;
 
     printf("[%2d] Scanning range %llx\n", thr_id, num);
 
     while (++num) {
+
+        if (hashes++ > 500000) {
+
+            uint64_t fn = get_time_millis();
+            double diff = (double) (fn - st) / 1000;
+            double hps = (double) hashes / diff;
+            printf("[%2d] %.2f keys/sec\n", thr_id, hps);
+
+            hashes = 0;
+            st = get_time_millis();
+        }
 
         genkey(&privkey[0], num);
         generate_keypair(&privkey[0], &pubkey[0], &pkh[0]);
