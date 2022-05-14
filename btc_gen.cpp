@@ -14,30 +14,14 @@
 #include <thread>
 #include <vector>
 
-typedef unsigned char byte;
 static secp256k1_context* ctx = NULL;
-static const char* tmpl = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 unsigned char pubkey_hash[20] = { 0x3e, 0xe4, 0x13, 0x3d, 0x99, 0x1f, 0x52, 0xfd, 0xf6, 0xa2, 0x5c, 0x98, 0x34, 0xe0, 0x74, 0x5a, 0xc7, 0x42, 0x48, 0xa4 };
-
-char* base58(byte* s, int s_size, char* out, int out_size)
-{
-    int c, i, n;
-    out[n = out_size] = 0;
-    while (n--) {
-        for (c = i = 0; i < s_size; i++) {
-            c = c * 256 + s[i];
-            s[i] = c / 58;
-            c %= 58;
-        }
-        out[n] = tmpl[c];
-    }
-    return out;
-}
 
 void generate_keypair(char* seckey, char* pubwif, char* pkh)
 {
-    if (!ctx)
+    if (!ctx) {
         ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
+    }
 
     secp256k1_pubkey pubkey;
     secp256k1_ec_pubkey_create(ctx, &pubkey, (const unsigned char*)seckey);
@@ -45,21 +29,10 @@ void generate_keypair(char* seckey, char* pubwif, char* pkh)
     uint8_t pubkey_serialized[33];
     size_t pubkeylen = sizeof(pubkey_serialized);
     secp256k1_ec_pubkey_serialize(ctx, pubkey_serialized, &pubkeylen, &pubkey, SECP256K1_EC_COMPRESSED);
-
-    byte s[33];
-    char pubaddress[34];
-    byte rmd[5 + RIPEMD160_DIGEST_LENGTH];
-    for (int j = 0; j < 33; j++) {
-        s[j] = pubkey_serialized[j];
-    }
-
-    rmd[0] = 0;
-    RIPEMD160(SHA256(s, 33, 0), SHA256_DIGEST_LENGTH, rmd + 1);
-    memcpy(rmd + 21, SHA256(SHA256(rmd, 21, 0), SHA256_DIGEST_LENGTH, 0), 4);
-    memcpy(pkh, rmd + 1, 20);
+    RIPEMD160(SHA256(pubkey_serialized, 33, 0), SHA256_DIGEST_LENGTH, (unsigned char*)pkh);
 }
 
-void genkey(char* privkey, uint64_t& smalnum)
+inline void genkey(char* privkey, uint64_t& smalnum)
 {
     memset(privkey, 0, 32);
     uint64_t swapped = __builtin_bswap64(smalnum);
@@ -70,41 +43,19 @@ void scan(int thr_id, uint64_t range_override = 0)
 {
     srand(time(NULL));
 
+    int best = 0;
     char privkey[32];
     char pubkey[35];
     char pkh[20];
 
-    int duration = 10;
     uint64_t num = range_override;
 
-    return_on_sec();
-    int64_t start = get_time_millis();
-    int64_t over_start = get_time_millis();
+    printf("[%2d] Scanning range %llx\n", thr_id, num);
 
-    int x = 0;
-    int best = 0;
-    uint64_t totalkeys = 0;
+    while (++num) {
 
-    printf("[%d] Scanning range %llx\n", thr_id, num);
-
-    while (true) {
-
-        totalkeys++;
-        x++;
-
-        ++num;
         genkey(&privkey[0], num);
         generate_keypair(&privkey[0], &pubkey[0], &pkh[0]);
-
-        const auto checkpt = get_time_millis();
-
-#if 0
-        if (checkpt - start > duration * 1000) {
-            printf("[%d] %.2f pairs/s (tested %llu keys)\n", thr_id, float(x / duration), totalkeys);
-            start = checkpt;
-            x = 0;
-        }
-#endif
 
         for (int z = 0; z < 20; z++) {
             if (pubkey_hash[z] != (uint8_t)pkh[z]) {
@@ -113,12 +64,14 @@ void scan(int thr_id, uint64_t range_override = 0)
             if (z > best) {
                 char full_privkey[65];
                 memset(full_privkey, 0, sizeof(full_privkey));
-                for (int y = 0; y < 32; y++)
+                for (int y = 0; y < 32; y++) {
                     sprintf(full_privkey + (y * 2), "%02hhx", privkey[y]);
+                }
                 best = z;
-                printf("[%d] best match %d (privkey %s)\n", thr_id, best + 1, full_privkey);
-                if (best + 1 == 34)
+                printf("[%2d] best match %d (privkey %s)\n", thr_id, best + 1, full_privkey);
+                if (best + 1 == 20) {
                     return;
+                }
             }
         }
     }
@@ -130,33 +83,6 @@ void scan(int thr_id, uint64_t range_override = 0)
 
 int main()
 {
-#if 0
-    //! test using the previous puzzles
-    bool unit_tests = false;
-    if (unit_tests) {
-	scan("1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH");
-	scan("1CUNEBjYrCn2y1SdiUMohaKUi4wpP326Lb");
-	scan("19ZewH8Kk1PDbSNdJ97FP4EiCjTRaZMZQA");
-	scan("1EhqbyUMvvs7BfL8goY6qcPbD6YKfPqb7e");
-	scan("1E6NuFjCi27W5zoXg8TRdcSRq84zJeBW3k");
-	scan("1PitScNLyp2HCygzadCh7FveTnfmpPbfp8");
-	scan("1McVt1vMtCC7yn5b9wgX1833yCcLXzueeC");
-	scan("1M92tSqNmQLYw33fuBvjmeadirh1ysMBxK");
-	scan("1CQFwcjw1dwhtkVWBttNLDtqL7ivBonGPV");
-	scan("1LeBZP5QCwwgXRtmVUvTVrraqPUokyLHqe");
-	scan("1PgQVLmst3Z314JrQn5TNiys8Hc38TcXJu");
-	scan("1DBaumZxUkM4qMQRt2LVWyFJq5kDtSZQot");
-	scan("1Pie8JkxBT6MGPz9Nvi3fsPkr2D8q3GBc1");
-	scan("1ErZWg5cFCe4Vw5BzgfzB74VNLaXEiEkhk");
-	scan("1QCbW9HWnwQWiQqVo5exhAnmfqKRrCRsvW");
-	scan("1BDyrQ6WoF8VN3g9SAS1iKZcPzFfnDVieY");
-	scan("1HduPEXZRdG26SUT5Yk83mLkPyjnZuJ7Bm");
-	scan("1GnNTmTVLZiqQfLbAdp9DVdicEnB5GoERE");
-	scan("1NWmZRpHH4XSPwsW6dsS3nrNWfL1yrJj4w");
-	scan("1HsMJxNiV7TLxmoF6uJNkydxPFDog4NQum");
-    }
-#endif
-
     std::srand(std::time(nullptr));
     uint64_t random_variable = std::rand();
 
@@ -178,7 +104,7 @@ int main()
             }
         }
         prev_start.push_back(thr_range);
-        printf("launching thread %d (%016llx)..\n", i, thr_range);
+        printf("launching thread %2d (%016llx)..\n", i, thr_range);
         threads.push_back(std::thread(scan, std::move(i), std::move(thr_range)));
     }
 
