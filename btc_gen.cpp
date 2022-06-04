@@ -29,7 +29,10 @@ void generate_keypair(char* seckey, char* pubwif, char* pkh)
     uint8_t pubkey_serialized[33];
     size_t pubkeylen = sizeof(pubkey_serialized);
     secp256k1_ec_pubkey_serialize(ctx, pubkey_serialized, &pubkeylen, &pubkey, SECP256K1_EC_COMPRESSED);
-    RIPEMD160(SHA256(pubkey_serialized, 33, 0), SHA256_DIGEST_LENGTH, (unsigned char*)pkh);
+
+    unsigned char hash[32];
+    SHA256(pubkey_serialized, pubkeylen, hash);
+    RIPEMD160(hash, SHA256_DIGEST_LENGTH, (unsigned char*)pkh);
 }
 
 inline void genkey(char* privkey, uint64_t& smalnum)
