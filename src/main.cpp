@@ -2,8 +2,7 @@
 // copyright (c) 2022 barrystyle
 
 #include "util.h"
-#include <openssl/ripemd.h>
-#include <openssl/sha.h>
+
 #include <secp256k1.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -13,6 +12,10 @@
 #include <algorithm>
 #include <thread>
 #include <vector>
+
+//! albertos hashfuncs
+#include "sha256.h"
+#include "ripemd160.h"
 
 unsigned char pubkey_hash[20] = { 0x3e, 0xe4, 0x13, 0x3d, 0x99, 0x1f, 0x52, 0xfd, 0xf6, 0xa2, 0x5c, 0x98, 0x34, 0xe0, 0x74, 0x5a, 0xc7, 0x42, 0x48, 0xa4 };
 
@@ -26,8 +29,8 @@ void generate_keypair(secp256k1_context* ctx, char* seckey, char* pubwif, char* 
     secp256k1_ec_pubkey_serialize(ctx, pubkey_serialized, &pubkeylen, &pubkey, SECP256K1_EC_COMPRESSED);
 
     unsigned char hash[32];
-    SHA256(pubkey_serialized, pubkeylen, hash);
-    RIPEMD160(hash, SHA256_DIGEST_LENGTH, (unsigned char*)pkh);
+    sha256_33(pubkey_serialized, hash);
+    ripemd160_32(hash, (unsigned char*)pkh);
 }
 
 inline void genkey(char* privkey, uint64_t& smalnum)
