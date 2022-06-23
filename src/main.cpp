@@ -14,15 +14,10 @@
 #include <thread>
 #include <vector>
 
-static secp256k1_context* ctx = NULL;
 unsigned char pubkey_hash[20] = { 0x3e, 0xe4, 0x13, 0x3d, 0x99, 0x1f, 0x52, 0xfd, 0xf6, 0xa2, 0x5c, 0x98, 0x34, 0xe0, 0x74, 0x5a, 0xc7, 0x42, 0x48, 0xa4 };
 
-void generate_keypair(char* seckey, char* pubwif, char* pkh)
+void generate_keypair(secp256k1_context* ctx, char* seckey, char* pubwif, char* pkh)
 {
-    if (!ctx) {
-        ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
-    }
-
     secp256k1_pubkey pubkey;
     secp256k1_ec_pubkey_create(ctx, &pubkey, (const unsigned char*)seckey);
 
@@ -42,7 +37,7 @@ inline void genkey(char* privkey, uint64_t& smalnum)
     memcpy(&privkey[24], &swapped, 8);
 }
 
-void scan(int thr_id, uint64_t range_override = 0)
+void scan(secp256k1_context* ctx, int thr_id, uint64_t range_override = 0)
 {
     srand(time(NULL));
 
@@ -70,7 +65,7 @@ void scan(int thr_id, uint64_t range_override = 0)
         }
 
         genkey(&privkey[0], num);
-        generate_keypair(&privkey[0], &pubkey[0], &pkh[0]);
+        generate_keypair(ctx, &privkey[0], &pubkey[0], &pkh[0]);
 
         for (int z = 0; z < 20; z++) {
             if (pubkey_hash[z] != (uint8_t)pkh[z]) {
@@ -118,9 +113,10 @@ int main()
                 break;
             }
         }
+        static secp256k1_context* ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
         prev_start.push_back(thr_range);
         printf("launching thread %2d (%016llx)..\n", i, thr_range);
-        threads.push_back(std::thread(scan, std::move(i), std::move(thr_range)));
+        threads.push_back(std::thread(scan, std::move(ctx), std::move(i), std::move(thr_range)));
     }
 
     for (auto& th : threads) {
