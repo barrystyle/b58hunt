@@ -4,6 +4,7 @@ LDFLAGS=
 LDLIBS=-lstdc++ -lsecp256k1 -lpthread
 
 SOURCES= \
+	src/key.cpp \
 	src/main.cpp \
 	src/util.cpp \
 	src/hash/ripemd160.cpp \
