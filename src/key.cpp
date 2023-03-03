@@ -3,11 +3,7 @@
 
 #include "key.h"
 
-#include <secp256k1.h>
-#include <stdbool.h>
-#include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
 //! albertos hashfuncs
 #include "sha256.h"
